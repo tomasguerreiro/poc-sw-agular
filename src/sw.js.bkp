@@ -1,0 +1,134 @@
+const CACHE_NAME = "my-cache-v1";
+
+self.addEventListener("install", (event) => {
+	// Precaching dinâmico: busca o index.html e extrai os nomes dos bundles usando regex
+	event.waitUntil(
+		caches.open(CACHE_NAME).then((cache) => {
+			return fetch("/index.html") // Caminho para o seu arquivo principal
+				.then((response) => {
+					return response.text();
+				})
+				.then((body) => {
+					const urlsToCache = ["/"]; // Inclui a raiz para o precaching
+
+					// Expressão regular para encontrar tags <script> com atributo src  e <link> com atributo href
+					const pattern = /<(?:script|link)\s[^>]*?(?:src|href)\s*=\s*["']([^"']+)["']/g;
+					const matches = body.matchAll(pattern);
+
+					for (const match of matches) {
+						urlsToCache.push(match[1]);
+					}
+
+					console.log("Precaching:", urlsToCache);
+
+					return cache.addAll(urlsToCache);
+				});
+		}),
+	);
+});
+
+self.addEventListener("fetch", (event) => {
+	// Ignorar requisições para o próprio Service Worker
+	// evitando o loop infinito em tempo de desenvolvimento
+	if (event.request.url.includes("sw.js")) {
+		return;
+	}
+
+	// // Estratégia de cache-first
+	self.addEventListener("fetch", (event) => {
+		// Intercepta a solicitação e responde com um recurso do cache ou da rede
+		event.respondWith(
+			// Tenta encontrar uma correspondência para a solicitação no cache
+			caches
+				.match(event.request)
+				.then((response) => {
+					// Se a resposta for encontrada no cache, retorna-a
+					if (response) {
+						return response;
+					}
+					// Caso contrário, faz uma solicitação de rede e retorna a resposta
+					return fetch(event.request);
+				}),
+		);
+	});
+
+	// // Estratégia de stale-while-revalidate (totalmente offline)
+	// event.respondWith(
+	// 	// Abre o cache com o nome especificado em CACHE_NAME
+	// 	caches
+	// 		.open(CACHE_NAME)
+	// 		.then((cache) => {
+	// 			// Tenta encontrar uma correspondêsncia para a solicitação no cache
+	// 			return cache
+	// 				.match(event.request)
+	// 				.then((response) => {
+	// 					// Se a resposta for encontrada no cache, retorna-a
+	// 					// Caso contrário, faz uma solicitação de rede
+	// 					const fetchPromise = fetch(event.request)
+	// 						.then((networkResponse) => {
+	// 							// Armazena a resposta da rede no cache para futuras solicitações
+	// 							cache.put(event.request, networkResponse.clone()).catch((error) => {
+	// 								console.error("Falha ao atualizar o cache:", error);
+	// 							});
+	// 							// Retorna a resposta da rede
+	// 							return networkResponse;
+	// 						})
+	// 						.catch((error) => {
+	// 							console.error("Falha na solicitação de rede:", error);
+	// 						});
+
+	// 					// Retorna a resposta do cache ou a promessa da solicitação de rede
+	// 					return response || fetchPromise;
+	// 				})
+	// 				.catch((error) => {
+	// 					console.error("Falha ao buscar no cache:", error);
+	// 				});
+	// 		})
+	// 		.catch((error) => {
+	// 			console.error("Falha ao abrir o cache:", error);
+	// 		}),
+	// );
+});
+
+self.addEventListener("activate", (event) => {
+	const cacheWhitelist = [CACHE_NAME];
+	event.waitUntil(
+		caches.keys().then((cacheNames) => {
+			return Promise.all(
+				cacheNames.map((cacheName) => {
+					if (!cacheWhitelist.includes(cacheName)) {
+						return caches.delete(cacheName);
+					}
+				}),
+			);
+		}),
+	);
+});
+
+// // Função para registrar o Service Worker
+// export async function registerBrowserServiceWorker() {
+// 	if ("serviceWorker" in navigator) {
+// 		window.addEventListener("load", () => {
+// 			navigator.serviceWorker.register("/sw.js").then(
+// 				(registration) => {
+// 					console.log("ServiceWorker registration successful with scope: ", registration.scope);
+// 				},
+// 				(err) => {
+// 					console.log("Failed to register Service Worker:", err);
+// 				},
+// 			);
+// 		});
+// 	}
+// }
+
+// export async function registerMainServiceWorker() {
+// 	if ("serviceWorker" in navigator) {
+// 		try {
+// 			await navigator.serviceWorker.register("/sw.js").then((registration) => {
+// 				console.log("Service Worker registered with scope:", registration.scope);
+// 			});
+// 		} catch (error) {
+// 			console.error("Failed to register Service Worker:", error);
+// 		}
+// 	}
+// }

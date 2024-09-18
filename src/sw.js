@@ -49,8 +49,6 @@ self.addEventListener("fetch", (event) => {
 	// 	return;
 	// }
 
-	console.log("fetch", event.request.url);
-
 	// Verifica se a URL termina com uma das extensões permitidas
 	if (allowedExtensions.some((ext) => url.href.endsWith(ext))) {
 		urlsToCache.add(url.href);
@@ -61,22 +59,31 @@ self.addEventListener("fetch", (event) => {
 		return event.respondWith(fetch(event.request));
 	}
 
-	// Estratégia Stale While Revalidate
+	// Se a url for permitida mas a resposta for 404, remove a url do cache,
+	// mas usa a estratégia Estratégia Stale While Revalidate.
 	event.respondWith(
-		caches.match(event.request).then((cachedResponse) => {
-			const fetchPromise = fetch(event.request).then((networkResponse) => {
-				return caches.open(CACHE_NAME).then((cache) => {
-					cache.put(event.request, networkResponse.clone());
+		caches.open(CACHE_NAME).then((cache) => {
+			return cache.match(event.request).then((cachedResponse) => {
+				const fetchPromise = fetch(event.request).then((networkResponse) => {
+					if (networkResponse.status === 404) {
+						console.log("Deletando cache:", event.request.url);
+						cache.delete(event.request);
+					} else if (networkResponse.ok) {
+						cache.put(event.request, networkResponse.clone());
+					}
+
 					return networkResponse;
 				});
+				return cachedResponse || fetchPromise;
 			});
-			return cachedResponse || fetchPromise;
 		}),
 	);
 });
 
 self.addEventListener("activate", (event) => {
 	console.log("Passou no activate");
+
+	// remove do cache
 
 	//remove o cache que não esta em urlsToCache
 	event.waitUntil(

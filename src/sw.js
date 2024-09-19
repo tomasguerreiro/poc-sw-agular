@@ -9,8 +9,6 @@ const allowedExtensions = [".js", ".css", ".html", ".png", ".jpg", ".jpeg", ".gi
 // URLs para precaching
 const urlsToCache = new Set([hostUrl.href]);
 
-console.log("Iniciando service worker");
-
 self.addEventListener("install", (event) => {
 	// Precaching dinâmico: busca o index.html e extrai os nomes dos bundles usando regex
 	event.waitUntil(
@@ -44,11 +42,6 @@ self.addEventListener("install", (event) => {
 self.addEventListener("fetch", (event) => {
 	const url = new URL(event.request.url);
 
-	// Ignora o service worker
-	// if (url.pathname.includes("sw.js")) {
-	// 	return;
-	// }
-
 	// Verifica se a URL termina com uma das extensões permitidas
 	if (allowedExtensions.some((ext) => url.href.endsWith(ext))) {
 		urlsToCache.add(url.href);
@@ -66,7 +59,7 @@ self.addEventListener("fetch", (event) => {
 			return cache.match(event.request).then((cachedResponse) => {
 				const fetchPromise = fetch(event.request).then((networkResponse) => {
 					if (networkResponse.status === 404) {
-						console.log("Deletando cache:", event.request.url);
+						console.log("Delete cache:", event.request.url);
 						cache.delete(event.request);
 					} else if (networkResponse.ok) {
 						cache.put(event.request, networkResponse.clone());
@@ -81,19 +74,14 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-	console.log("Passou no activate");
-
-	// remove do cache
-
 	//remove o cache que não esta em urlsToCache
 	event.waitUntil(
 		caches.open(CACHE_NAME).then((cache) => {
 			return cache.keys().then((keys) => {
 				return Promise.all(
 					keys.map((request) => {
-						console.log("activate", request.url);
 						if (!urlsToCache.has(request.url)) {
-							console.log("Deletando cache:", request.url);
+							console.log("Delete cache:", request.url);
 							return cache.delete(request);
 						}
 					}),

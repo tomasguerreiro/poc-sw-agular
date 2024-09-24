@@ -25,7 +25,7 @@ self.addEventListener("install", (event) => {
 					for (const match of matches) {
 						const url = new URL(match[1], self.location.origin);
 						// Verifica se a URL termina com uma das extensões permitidas
-						if (allowedExtensions.some((ext) => url.href.endsWith(ext))) {
+						if (allowedExtensions.some((ext) => url.pathname.endsWith(ext))) {
 							urlsToCache.add(url.href);
 						}
 					}
@@ -43,7 +43,7 @@ self.addEventListener("fetch", (event) => {
 	const url = new URL(event.request.url);
 
 	// Verifica se a URL termina com uma das extensões permitidas
-	if (allowedExtensions.some((ext) => url.href.endsWith(ext))) {
+	if (allowedExtensions.some((ext) => url.pathname.endsWith(ext))) {
 		urlsToCache.add(url.href);
 	}
 
@@ -58,7 +58,7 @@ self.addEventListener("fetch", (event) => {
 		caches.open(CACHE_NAME).then((cache) => {
 			return cache.match(event.request).then((cachedResponse) => {
 				const fetchPromise = fetch(event.request).then((networkResponse) => {
-					if (networkResponse.status === 404) {
+					if (!networkResponse.ok && networkResponse.status !== 0) {
 						console.log("Delete cache:", event.request.url);
 						cache.delete(event.request);
 					} else if (networkResponse.ok) {
